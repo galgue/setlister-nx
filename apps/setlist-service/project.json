@@ -1,0 +1,53 @@
+{
+  "name": "setlist-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/setlist-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/setlist-service",
+        "main": "apps/setlist-service/src/main.ts",
+        "tsConfig": "apps/setlist-service/tsconfig.app.json",
+        "assets": ["apps/setlist-service/src/assets"],
+        "webpackConfig": "apps/setlist-service/webpack.config.js"
+      },
+      "configurations": {
+        "development": {},
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "setlist-service:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "setlist-service:build:development"
+        },
+        "production": {
+          "buildTarget": "setlist-service:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/setlist-service/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

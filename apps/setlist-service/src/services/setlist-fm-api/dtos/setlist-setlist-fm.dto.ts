@@ -17,7 +17,7 @@ export class SetSetlistFmDto {
   song: {
     name: string;
     tape: boolean;
-    cover: {
+    cover?: {
       name: string;
       mbid: string;
       disambiguation: string;

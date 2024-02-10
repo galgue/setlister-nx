@@ -7,6 +7,7 @@ import { redisStore } from 'cache-manager-redis-yet';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SetlistModule } from './setlist/setlist.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SetlistModule } from './setlist/setlist.module';
       }),
     }),
     SetlistModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

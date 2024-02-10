@@ -1,86 +1,71 @@
-import { InjectQueue } from '@nestjs/bull';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Inject, Injectable } from '@nestjs/common';
-import { Queue } from 'bull';
-import { ArtistSetlistFmDto } from './dtos/artist-setlist-fm.dto';
-import { SetlistSetlistFmDto } from './dtos/setlist-setlist-fm.dto';
-import {
-  SetlistProcessDataType,
-  SetlistProcessType,
-} from './setlist.consumers';
+import { Injectable } from '@nestjs/common';
+import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
+import { SetSetlistFmDto } from '../../services/setlist-fm-api/dtos/setlist-setlist-fm.dto';
+import { MusicApiService } from '../../services/music-api/musicapi.service';
 
 @Injectable()
 export class SetlistService {
   constructor(
-    @InjectQueue('setlist') private readonly setlistQueue: Queue,
-    @Inject(CACHE_MANAGER) private cacheService: Cache
+    private readonly setlistFmApiService: SetlistFmApiService,
+    private readonly musicApi: MusicApiService
   ) {}
 
-  private async getFromCacheOrRunQueue<T>(
-    key: string,
-    queueName: SetlistProcessType,
-    queueData: SetlistProcessDataType<typeof queueName>,
-    options: { priority: number; ttl: number | ((result: T) => number) }
-  ) {
-    const res = await this.cacheService.get<T>(key);
-
-    if (res !== undefined) {
-      return res;
-    }
-
-    const thisJob = await this.setlistQueue.add(queueName, queueData, {
-      priority: options.priority,
-    });
-
-    return await new Promise((resolve, reject) => {
-      this.setlistQueue.on('completed', async (job, result: T) => {
-        if (job.id === thisJob.id) {
-          this.cacheService.set(
-            key,
-            result,
-            typeof options.ttl === 'function'
-              ? options.ttl(result)
-              : options.ttl
-          );
-
-          resolve(result);
-        }
-      });
-
-      this.setlistQueue.on('failed', (job, err) => {
-        if (job.id === thisJob.id) {
-          reject(err);
-        }
-      });
-    });
-  }
-
   async searchArtist(search: string) {
-    return this.getFromCacheOrRunQueue<ArtistSetlistFmDto[]>(
-      `search-artist:${search}`,
-      'searchArtist',
-      {
-        search,
-      } as SetlistProcessDataType<'searchArtist'>,
-      {
-        priority: 2,
-        ttl: 300000,
-      }
-    );
+    return this.setlistFmApiService.searchArtist(search);
   }
 
-  async getArtistSetlists(mbid: string, page: number) {
-    return this.getFromCacheOrRunQueue<SetlistSetlistFmDto>(
-      `artist-setlists:${mbid}:${page}`,
-      'getArtistSetlists',
-      {
-        mbid,
-        page,
-      } as SetlistProcessDataType<'getArtistSetlists'>,
-      {
-        priority: 2,
-        ttl: 300000,
-      }
+  async getArtistSetlist(userUUID: string, mbid: string) {
+    const artistSetlists = await this.setlistFmApiService.getArtistSetlists(
+      mbid
     );
+
+    const topPlayedSongs = artistSetlists.reduce(
+      (acc, setlist) => {
+        setlist.sets.set.forEach((set) => {
+          set.song.forEach((song) => {
+            const songName = song.name;
+
+            if (acc[songName]) {
+              acc[songName].count++;
+            } else {
+              acc[songName] = { song, count: 1 };
+            }
+          });
+        });
+
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          song: SetSetlistFmDto['song'][0];
+          count: number;
+        }
+      >
+    );
+
+    const topSongs = Object.entries(topPlayedSongs)
+      .filter(([, data]) => data.count > 3)
+      .filter(([, data]) => !data.song.tape)
+      .map(([, data]) => ({ ...data.song }));
+
+    const artist = await this.setlistFmApiService.getArtist(mbid);
+
+    const topSongsTracks = await Promise.all(
+      topSongs.map(async (song) => {
+        const track = await this.musicApi.searchSong(
+          userUUID,
+          song?.cover?.name ?? artist.name,
+          song.name
+        );
+
+        return {
+          ...song,
+          track,
+        };
+      })
+    );
+
+    return topSongsTracks;
   }
 }

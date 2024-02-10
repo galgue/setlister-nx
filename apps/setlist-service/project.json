@@ -18,7 +18,9 @@
         "webpackConfig": "apps/setlist-service/webpack.config.js"
       },
       "configurations": {
-        "development": {},
+        "development": {
+          "sourceMap": true
+        },
         "production": {}
       }
     },

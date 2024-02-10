@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { MusicapiHttpService } from './musicapi-http/musicapi-http.service';
 import { firstValueFrom } from 'rxjs';
 import { SearchSongResponseDto } from './dtos/search-song-response.dto';
-import { UserResponseDto } from './dtos/user-response.dto';
+import { UserIntegrationResponseDto } from './dtos/user-integration-response.dto';
+import { MusicapiHttpService } from './musicapi-http/musicapi-http.service';
 
 @Injectable()
 export class MusicApiService {
@@ -35,9 +35,9 @@ export class MusicApiService {
     return songsWithFullName.at(0) || response.data.results.at(0);
   }
 
-  async getUser(userUUID: string) {
-    const observable = this.musicapiHttpService.get<UserResponseDto>(
-      `api/${userUUID}/users/profile`
+  async getUserIntegration(authModelUUID: string) {
+    const observable = this.musicapiHttpService.get<UserIntegrationResponseDto>(
+      `app/integrations/${authModelUUID}`
     );
 
     const response = await firstValueFrom(observable);

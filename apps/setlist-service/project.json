@@ -4,6 +4,24 @@
   "sourceRoot": "apps/setlist-service/src",
   "projectType": "application",
   "targets": {
+    "prisma": {
+      "command": "prisma",
+      "options": {
+        "cwd": "apps/setlist-service"
+      }
+    },
+    "migrate": {
+      "command": "prisma migrate dev",
+      "options": {
+        "cwd": "apps/setlist-service"
+      }
+    },
+    "generate-types": {
+      "command": "prisma generate",
+      "options": {
+        "cwd": "apps/setlist-service"
+      }
+    },
     "build": {
       "executor": "@nx/webpack:webpack",
       "outputs": ["{options.outputPath}"],

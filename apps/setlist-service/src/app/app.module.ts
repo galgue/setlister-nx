@@ -8,27 +8,39 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SetlistModule } from './setlist/setlist.module';
 import { AuthModule } from '../auth/auth.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { envValidation } from './envValidation';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate(schema) {
+        return envValidation.parse(schema);
+      },
+    }),
     DevtoolsModule.register({
       http: process.env.NODE_ENV !== 'production',
     }),
     BullModule.forRootAsync({
-      useFactory: () => ({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<EnvConfig>) => ({
         redis: {
-          host: 'localhost',
-          port: 6379,
+          host: configService.get('REDIS_URL'),
+          port: configService.get('REDIS_PORT'),
         },
       }),
     }),
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => ({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService<EnvConfig>) => ({
         store: await redisStore({
           socket: {
-            host: 'localhost',
-            port: 6379,
+            host: configService.get('REDIS_URL'),
+            port: configService.get('REDIS_PORT'),
           },
         }),
       }),

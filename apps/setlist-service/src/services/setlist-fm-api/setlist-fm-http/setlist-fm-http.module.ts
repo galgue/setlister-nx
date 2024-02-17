@@ -1,19 +1,20 @@
 import { Module } from '@nestjs/common';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { SetlistFmHttpService } from './setlist-fm-http.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     HttpModule.registerAsync({
-      imports: [],
-      useFactory: async () => ({
+      useFactory: async (configService: ConfigService<EnvConfig>) => ({
         baseURL: 'https://api.setlist.fm/rest/1.0/',
         headers: {
-          'x-api-key': 'Y9PcUcNe3JzHwBin5TTh1mVqkuc-VPTjIBgj', //TODO: move to env
+          'x-api-key': configService.get('SETLIST_FM_API_KEY'),
           Accept: 'application/json',
         },
       }),
-      inject: [],
+      imports: [ConfigModule],
+      inject: [ConfigService],
     }),
   ],
   providers: [

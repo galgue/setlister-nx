@@ -22,11 +22,7 @@ export class SetlistService {
     private readonly setlistFmApiService: SetlistFmApiService,
     private readonly musicApi: MusicApiService,
     private readonly prismaService: PrismaService
-  ) {
-    this.prismaService.$on('query' as never, (e) => {
-      console.log(e);
-    });
-  }
+  ) {}
 
   async searchArtist(search: string) {
     return this.setlistFmApiService.searchArtist(search);

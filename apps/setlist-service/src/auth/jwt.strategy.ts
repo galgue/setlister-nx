@@ -37,11 +37,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 }
 
+export type User = {
+  userUUID: typeof UserIntegrationResponseDto.prototype.integrationUser.uuid;
+  platform: typeof UserIntegrationResponseDto.prototype.integration.type;
+} & UserIntegrationResponseDto['integrationUser'];
+
 declare module 'express' {
   interface Request {
-    user: {
-      userUUID: typeof UserIntegrationResponseDto.prototype.integrationUser.uuid;
-      platform: typeof UserIntegrationResponseDto.prototype.integration.type;
-    } & UserIntegrationResponseDto['integrationUser'];
+    user: User;
   }
 }

@@ -21,7 +21,6 @@ export class SetlistController {
     @Query() query: GetArtistSetlistsQueryDto,
     @Request() req: RequestType
   ) {
-    console.log(req.user);
-    return this.setlistService.getArtistSetlist(req.user.userUUID, query.mbid);
+    return this.setlistService.getArtistSetlist(req.user, query.mbid);
   }
 }

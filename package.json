@@ -51,6 +51,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.2",
+    "@prisma/client": "5.9.1",
     "axios": "^1.0.0",
     "bull": "^4.12.2",
     "cache-manager": "^5.4.0",
@@ -63,6 +64,7 @@
     "passport": "^0.7.0",
     "passport-custom": "^1.1.1",
     "passport-jwt": "^4.0.1",
+    "prisma": "^5.9.1",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
     "tslib": "^2.3.0"

@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Artist {
+  id          Int       @id @default(autoincrement())
+  setlistFmId String    @unique
+  name        String
+  nextShow    DateTime?
+  Show        Show[]
+  Song        Song[]
+
+  @@unique([setlistFmId, name])
+}
+
+model Show {
+  id       Int        @id @default(autoincrement())
+  artistId Int
+  artist   Artist     @relation(fields: [artistId], references: [id])
+  date     DateTime
+  version  Int
+  ShowSong ShowSong[]
+
+  @@unique([artistId, date])
+}
+
+model Song {
+  id           Int            @id @default(autoincrement())
+  artistId     Int
+  artist       Artist         @relation(fields: [artistId], references: [id])
+  name         String
+  SongPlatform SongPlatform[]
+  ShowSong     ShowSong[]
+
+  @@unique([artistId, name])
+}
+
+model SongPlatform {
+  songId       Int
+  platformName String
+  platformId   String
+  imageUrl     String?
+  previewUrl   String?
+  album        String?
+
+  Song Song @relation(fields: [songId], references: [id])
+
+  @@id([songId, platformName])
+}
+
+model ShowSong {
+  showId Int
+  songId Int
+
+  Show Show @relation(fields: [showId], references: [id])
+  Song Song @relation(fields: [songId], references: [id])
+
+  @@id([showId, songId])
+}

@@ -10,6 +10,7 @@ import { SetlistModule } from './setlist/setlist.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envValidation } from './envValidation';
+import { FestivalModule } from './festival/festival.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { envValidation } from './envValidation';
     }),
     SetlistModule,
     AuthModule,
+    FestivalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -10,6 +10,21 @@ export class FestivalService {
     private readonly prismaService: PrismaService
   ) {}
 
+  async getFestival(festivalId: number) {
+    return await this.prismaService.festival.findUnique({
+      where: {
+        id: festivalId,
+      },
+      include: {
+        FestivalArtist: {
+          include: {
+            Artist: true,
+          },
+        },
+      },
+    });
+  }
+
   async getArtistFestival(artistId: number) {
     return await this.prismaService.festival.findMany({
       where: {

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
-import { MusicApiService } from '../../services/music-api/musicapi.service';
-import { PrismaService } from '../../db/prisma.service';
 import dayjs from 'dayjs';
 import { User } from '../../auth/jwt.strategy';
+import { PrismaService } from '../../db/prisma.service';
+import { MusicApiService } from '../../services/music-api/musicapi.service';
+import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
 
 type SongInfo = {
   songId: number;
@@ -40,10 +40,10 @@ export class SetlistService {
     const artist = await this.setlistFmApiService.getArtist(setlistFmId);
     await this.prismaService.artist.upsert({
       where: {
-        setlistFmId,
+        name: artist.name,
       },
       update: {
-        name: artist.name,
+        setlistFmId,
       },
       create: {
         setlistFmId,
@@ -53,7 +53,7 @@ export class SetlistService {
   }
 
   private async calculateArtistSetlists(setlistFmId: string) {
-    const artist = await this.prismaService.artist.findUnique({
+    const artist = await this.prismaService.artist.findFirst({
       where: {
         setlistFmId,
       },

@@ -11,12 +11,13 @@ datasource db {
 }
 
 model Artist {
-  id          Int       @id @default(autoincrement())
-  setlistFmId String    @unique
-  name        String
-  nextShow    DateTime?
-  Show        Show[]
-  Song        Song[]
+  id             Int              @id @default(autoincrement())
+  setlistFmId    String?
+  name           String           @unique
+  nextShow       DateTime?
+  Show           Show[]
+  Song           Song[]
+  FestivalArtist FestivalArtist[]
 
   @@unique([setlistFmId, name])
 }
@@ -64,4 +65,27 @@ model ShowSong {
   Song Song @relation(fields: [songId], references: [id])
 
   @@id([showId, songId])
+}
+
+model Festival {
+  id             Int              @id @default(autoincrement())
+  jambaseId      String           @unique
+  name           String
+  image          String?
+  startDate      DateTime
+  endDate        DateTime
+  country        String
+  region         String?
+  city           String
+  FestivalArtist FestivalArtist[]
+}
+
+model FestivalArtist {
+  festivalId Int
+  artistId   Int
+
+  Festival Festival @relation(fields: [festivalId], references: [id])
+  Artist   Artist   @relation(fields: [artistId], references: [id])
+
+  @@id([festivalId, artistId])
 }

@@ -7,6 +7,7 @@ export const envValidation = z.object({
   REDIS_URL: z.string(),
   REDIS_PORT: z.coerce.number().transform((val) => val.toString()),
   JWT_SECRET: z.string(),
+  JAMBASE_API_KEY: z.string(),
 });
 
 export type EnvConfigZod = z.infer<typeof envValidation>;

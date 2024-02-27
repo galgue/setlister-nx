@@ -1,5 +1,6 @@
 import { UserResponseDto } from './user-response.dto';
 
+export type IntegrationType = 'spotify' | 'youtube';
 export class UserIntegrationResponseDto {
   returnUrl: string;
   authModel: {
@@ -11,7 +12,7 @@ export class UserIntegrationResponseDto {
     uuid: string;
   };
   integration: {
-    type: 'spotify' | 'youtube';
+    type: IntegrationType;
     returnUrl: string;
   };
 }

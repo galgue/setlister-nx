@@ -15,6 +15,7 @@ model Artist {
   setlistFmId    String?
   name           String           @unique
   nextShow       DateTime?
+  noNextShow     Boolean          @default(false)
   Show           Show[]
   Song           Song[]
   FestivalArtist FestivalArtist[]

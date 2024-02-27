@@ -1,17 +1,28 @@
+import { InjectQueue } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
-import { JambaseApiService } from '../../services/jambase-api/jambase-api.service';
-import { PrismaService } from '../../db/prisma.service';
+import { Queue } from 'bull';
 import dayjs from 'dayjs';
+import { User } from '../../auth/jwt.strategy';
+import { PrismaService } from '../../db/prisma.service';
+import { JambaseApiService } from '../../services/jambase-api/jambase-api.service';
+import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
+import { FestivalCalculationProgressService } from '../services/festival-calculation-progress/festival-calculation-progress.service';
+import { SetlistService } from '../setlist/setlist.service';
+import { IntegrationType } from '../../services/music-api/dtos/user-integration-response.dto';
 
 @Injectable()
 export class FestivalService {
   constructor(
     private readonly jambaseApiService: JambaseApiService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly setlistFmApiService: SetlistFmApiService,
+    private readonly festivalCalculationProgressService: FestivalCalculationProgressService,
+    private readonly setlistService: SetlistService,
+    @InjectQueue('festival') private readonly festivalQueue: Queue
   ) {}
 
   async getFestival(festivalId: number) {
-    return await this.prismaService.festival.findUnique({
+    const festival = await this.prismaService.festival.findUnique({
       where: {
         id: festivalId,
       },
@@ -23,6 +34,17 @@ export class FestivalService {
         },
       },
     });
+
+    if (!festival) {
+      return;
+    }
+
+    const { FestivalArtist, ...festivalInfo } = festival;
+
+    return {
+      ...festivalInfo,
+      artists: FestivalArtist.map((fa) => fa.Artist),
+    };
   }
 
   async getArtistFestival(artistId: number) {
@@ -35,6 +57,40 @@ export class FestivalService {
         },
       },
     });
+  }
+
+  async getFestivalSetlist(festivalId: number, platform: IntegrationType) {
+    const festival = await this.prismaService.festival.findUnique({
+      where: {
+        id: festivalId,
+      },
+      include: {
+        FestivalArtist: {
+          include: {
+            Artist: true,
+          },
+        },
+      },
+    });
+
+    if (!festival) {
+      throw new Error('Festival not found');
+    }
+
+    const promises = await Promise.allSettled(
+      festival.FestivalArtist.map(async (fa) => {
+        const artist = fa.Artist;
+        return await this.setlistService.getArtistSetlistSongs(
+          artist.id,
+          platform
+        );
+      })
+    );
+
+    return promises
+      .map((p) => (p.status === 'fulfilled' ? p.value : []))
+      .flat()
+      .filter((s) => s.platformId !== null);
   }
 
   async calculateArtistFestival(artistId: number) {
@@ -112,5 +168,152 @@ export class FestivalService {
     return {
       success: true,
     };
+  }
+
+  async getFestivals(page = 1, pageSize = 10) {
+    return await this.prismaService.festival.findMany({
+      orderBy: {
+        startDate: 'asc',
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+  }
+
+  async getFestivalArtistsWithInfo(festivalId: number) {
+    return await this.prismaService.festivalArtist.findMany({
+      where: {
+        festivalId,
+        Artist: {
+          setlistFmId: {
+            not: null,
+          },
+        },
+      },
+      include: {
+        Artist: true,
+      },
+    });
+  }
+
+  async triggerCalculateFestivalInfo(festivalId: number) {
+    await this.festivalQueue.add('calculateFestival', {
+      festivalId,
+    });
+  }
+
+  async calculateFestivalInfo(festivalId: number) {
+    const festivalWithArtists = await this.prismaService.festival.findUnique({
+      where: {
+        id: festivalId,
+      },
+      include: {
+        FestivalArtist: {
+          include: {
+            Artist: true,
+          },
+        },
+      },
+    });
+
+    if (!festivalWithArtists) {
+      throw new Error('Festival not found');
+    }
+
+    if (!festivalWithArtists.FestivalArtist.length) {
+      throw new Error('No artists found');
+    }
+
+    const artists = festivalWithArtists.FestivalArtist.map((fa) => fa.Artist);
+
+    const results = await Promise.allSettled(
+      artists.map(async (artist) => {
+        let setlistFmId = artist.setlistFmId;
+        if (!artist.setlistFmId) {
+          const searchedArtists = await this.setlistFmApiService.searchArtist(
+            artist.name,
+            'async'
+          );
+
+          if (!searchedArtists) {
+            return;
+          }
+
+          setlistFmId =
+            searchedArtists.find((a) => a.name === artist.name)?.mbid ||
+            searchedArtists[0].mbid;
+
+          await this.prismaService.artist.update({
+            where: {
+              id: artist.id,
+            },
+            data: {
+              setlistFmId,
+            },
+          });
+        }
+        await this.setlistService.calculateArtistSetlistsInfo(artist.id, false);
+      })
+    );
+
+    return {
+      success: results.filter((r) => r.status === 'fulfilled').length,
+      failed: results.filter((r) => r.status === 'rejected').length,
+    };
+  }
+
+  async calculateFestivalSetlistsSongs(user: User, festivalId: number) {
+    const artists = await this.getFestivalArtistsWithInfo(festivalId);
+
+    const result = (
+      await Promise.all(
+        artists.map(async (artist) => {
+          try {
+            // await this.festivalCalculationProgressService.addArtistProgress(
+            //   festivalId,
+            //   artist.Artist.id
+            // );
+            const result = await this.setlistService.calculateTopSongsInfo(
+              user,
+              artist.Artist.id
+            );
+            // await this.festivalCalculationProgressService.upsertArtistProgress(
+            //   festivalId,
+            //   artist.Artist.id,
+            //   false
+            // );
+            console.log('calculate festival result', artist, result);
+            return result;
+          } catch (e) {
+            console.error('calculate festival error', artist, e);
+            // this.festivalCalculationProgressService.upsertArtistProgress(
+            //   festivalId,
+            //   artist.Artist.id,
+            //   true
+            // );
+          }
+        })
+      )
+    ).flat();
+
+    return result;
+  }
+
+  async triggerCalculateFestivalArtistsSetlists(
+    user: User,
+    festivalId: number
+  ) {
+    // const festivalCalculation =
+    //   await this.festivalCalculationProgressService.getProgress(festivalId);
+
+    // if (festivalCalculation.inProgress > 0) {
+    //   return festivalCalculation;
+    // }
+
+    // TODO: Add progress check
+    await this.festivalQueue.add('calculateFestivalArtistsSetlists', {
+      user,
+      festivalId,
+    });
   }
 }

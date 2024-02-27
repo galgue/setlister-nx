@@ -1,9 +1,4 @@
-import {
-  BullModule,
-  BullModuleOptions,
-  InjectQueue as InjectQueueBull,
-  Processor as ProcessorBull,
-} from '@nestjs/bull';
+import { BullModule, BullModuleOptions } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { SetlistFmApiConsumer } from './setlist-fm-api.consumers';
 import { SetlistFmApiService } from './setlist-fm-api.service';
@@ -19,15 +14,6 @@ const queues = [
   },
 ] as const satisfies readonly BullModuleOptions[];
 
-type QueueName = (typeof queues)[number]['name'];
-
-export function InjectQueue(key: QueueName) {
-  return InjectQueueBull(key);
-}
-
-export function Processor(key: QueueName) {
-  return ProcessorBull(key);
-}
 @Module({
   imports: [BullModule.registerQueue(...queues), SetlistFmHttpModule],
   providers: [SetlistFmApiService, SetlistFmApiConsumer],

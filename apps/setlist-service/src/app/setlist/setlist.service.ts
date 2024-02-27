@@ -4,6 +4,7 @@ import { User } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../db/prisma.service';
 import { MusicApiService } from '../../services/music-api/musicapi.service';
 import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
+import { IntegrationType } from '../../services/music-api/dtos/user-integration-response.dto';
 
 type SongInfo = {
   songId: number;
@@ -28,17 +29,22 @@ export class SetlistService {
     return this.setlistFmApiService.searchArtist(search);
   }
 
-  async getArtistSetlist(user: User, setlistFmId: string) {
-    await this.createArtist(setlistFmId);
-    await this.calculateArtistSetlists(setlistFmId);
-    const songs = await this.calculateSongsInfo(user, setlistFmId);
+  async calculateArtistSetlistSongs(user: User, id: number) {
+    await this.calculateArtistSetlistsInfo(id);
+    const songs = await this.calculateTopSongsInfo(user, id);
 
     return songs;
   }
 
-  private async createArtist(setlistFmId: string) {
+  async getArtistSetlistSongs(id: number, platform: IntegrationType) {
+    const songs = await this.getArtistTopSongs(id, platform);
+
+    return songs;
+  }
+
+  async createArtist(setlistFmId: string) {
     const artist = await this.setlistFmApiService.getArtist(setlistFmId);
-    await this.prismaService.artist.upsert({
+    return await this.prismaService.artist.upsert({
       where: {
         name: artist.name,
       },
@@ -52,10 +58,10 @@ export class SetlistService {
     });
   }
 
-  private async calculateArtistSetlists(setlistFmId: string) {
+  async calculateArtistSetlistsInfo(id: number, sync = true) {
     const artist = await this.prismaService.artist.findFirst({
       where: {
-        setlistFmId,
+        id,
       },
     });
 
@@ -63,9 +69,12 @@ export class SetlistService {
       throw new Error('Artist not found');
     }
 
-    if (!artist.nextShow || artist.nextShow < new Date()) {
+    if (!artist.nextShow || dayjs().isAfter(dayjs(artist.nextShow))) {
       const { first10PastShows: setlistFmSetlists, nextShow } =
-        await this.setlistFmApiService.getArtistSetlists(setlistFmId);
+        await this.setlistFmApiService.getArtistSetlists(
+          artist.setlistFmId,
+          sync ? 'sync' : 'async'
+        );
 
       const coverArtistsIdToName = setlistFmSetlists
         .flatMap((setlist) =>
@@ -168,13 +177,14 @@ export class SetlistService {
           id: artist.id,
         },
         data: {
-          nextShow,
+          nextShow: nextShow ?? dayjs().add(1, 'week').toDate(),
+          noNextShow: !nextShow,
         },
       });
     }
   }
 
-  private async getArtistTopSongs(setlistFmId: string) {
+  private async getArtistTopSongs(id: number, platform: IntegrationType) {
     return await this.prismaService.$queryRaw<SongInfo[]>`
     SELECT 
       s.id as songId, 
@@ -191,25 +201,25 @@ export class SetlistService {
       SELECT sh.id as showId, sh.artistId
       FROM \`Show\` sh
       JOIN \`Artist\` a ON a.id = sh.artistId
-      WHERE a.setlistFmId = ${setlistFmId}
+      WHERE a.id = ${id}
       LIMIT 10
     ) sh ON sh.showId = ss.showId
     JOIN \`Artist\` a ON a.id = s.artistId
-    LEFT JOIN \`SongPlatform\` sp ON s.id = sp.songId
+    LEFT JOIN \`SongPlatform\` sp ON s.id = sp.songId AND sp.platformName = ${platform}
     GROUP BY s.name, a.id
     HAVING COUNT(*) > 3;
     `;
   }
 
-  private async calculateSongsInfo(user: User, setlistFmId: string) {
-    const songs = await this.getArtistTopSongs(setlistFmId);
+  async calculateTopSongsInfo(user: User, id: number) {
+    const songs = await this.getArtistTopSongs(id, user.platform);
 
     const songsThatNeedInfo = songs.filter((song) => !song.platformId);
 
     const songsWithTrack = await Promise.all(
       songsThatNeedInfo.map(async (song) => {
         const info = await this.musicApi.searchSong(
-          user.userUUID,
+          user,
           song.artist,
           song.name
         );
@@ -220,7 +230,7 @@ export class SetlistService {
       })
     );
 
-    this.prismaService.songPlatform.createMany({
+    const result = await this.prismaService.songPlatform.createMany({
       data: songsWithTrack.map((song) => ({
         songId: song.songId,
         platformId: song.info.track.id,
@@ -229,7 +239,12 @@ export class SetlistService {
         album: song.info.track.album?.name,
         previewUrl: song.info.track.previewUrl,
       })),
+      skipDuplicates: true,
     });
+
+    if (result.count !== songsWithTrack.length) {
+      throw new Error('Error creating song platform');
+    }
 
     const songsWithInfo = songs.map((song) => {
       if (song.platformId) {

@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 dayjs.extend(customParseFormat);
 
 async function bootstrap() {
+  process.setMaxListeners(Number(process.env.MAX_EVENT_LISTENERS));
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
 

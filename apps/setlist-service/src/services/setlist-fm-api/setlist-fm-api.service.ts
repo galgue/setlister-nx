@@ -60,7 +60,7 @@ export class SetlistFmApiService {
     });
   }
 
-  async searchArtist(search: string) {
+  async searchArtist(search: string, priority: 'sync' | 'async' = 'sync') {
     const data = await this.getFromCacheOrRunQueue<SearchArtistResponseDto>(
       `search-artist:${search}`,
       'searchArtist',
@@ -68,7 +68,7 @@ export class SetlistFmApiService {
         search,
       } as SetlistProcessDataType<'searchArtist'>,
       {
-        priority: 1,
+        priority: priority === 'sync' ? 1 : 2,
         ttl: 300000,
       }
     );
@@ -130,6 +130,9 @@ export class SetlistFmApiService {
       nextShow: nextShow?.eventDate
         ? dayjs(nextShow.eventDate, 'DD-MM-YYYY').toDate()
         : null,
+    } as {
+      first10PastShows: SetlistSetlistFmDto[];
+      nextShow: Date | null;
     };
   }
 

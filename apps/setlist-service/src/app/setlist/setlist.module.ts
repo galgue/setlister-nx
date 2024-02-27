@@ -8,5 +8,6 @@ import { SetlistService } from './setlist.service';
   imports: [SetlistFmApiModule, MusicApiModule, PrismaModule],
   providers: [SetlistService],
   controllers: [SetlistController],
+  exports: [SetlistService],
 })
 export class SetlistModule {}

@@ -68,4 +68,12 @@ export class FestivalController {
       req.user.platform
     );
   }
+
+  @Post(':festivalId/playlist/create')
+  createFestival(
+    @Param('festivalId') festivalId: number,
+    @Request() req: RequestType
+  ) {
+    return this.festivalService.createFestivalPlaylist(req.user, festivalId);
+  }
 }

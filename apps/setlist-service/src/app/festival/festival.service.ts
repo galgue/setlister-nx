@@ -6,9 +6,9 @@ import { User } from '../../auth/jwt.strategy';
 import { PrismaService } from '../../db/prisma.service';
 import { JambaseApiService } from '../../services/jambase-api/jambase-api.service';
 import { SetlistFmApiService } from '../../services/setlist-fm-api/setlist-fm-api.service';
-import { FestivalCalculationProgressService } from '../services/festival-calculation-progress/festival-calculation-progress.service';
 import { SetlistService } from '../setlist/setlist.service';
 import { IntegrationType } from '../../services/music-api/dtos/user-integration-response.dto';
+import { MusicApiService } from '../../services/music-api/musicapi.service';
 
 @Injectable()
 export class FestivalService {
@@ -16,8 +16,8 @@ export class FestivalService {
     private readonly jambaseApiService: JambaseApiService,
     private readonly prismaService: PrismaService,
     private readonly setlistFmApiService: SetlistFmApiService,
-    private readonly festivalCalculationProgressService: FestivalCalculationProgressService,
     private readonly setlistService: SetlistService,
+    private readonly musicApiService: MusicApiService,
     @InjectQueue('festival') private readonly festivalQueue: Queue
   ) {}
 
@@ -315,5 +315,33 @@ export class FestivalService {
       user,
       festivalId,
     });
+  }
+
+  async createFestivalPlaylist(user: User, festivalId: number) {
+    const festival = await this.getFestival(festivalId);
+
+    if (!festival) {
+      throw new Error('Festival not found');
+    }
+
+    const festivalSetlist = (
+      await this.getFestivalSetlist(festivalId, user.platform)
+    ).map((s) => s.platformId);
+
+    const { id } = await this.musicApiService.createPlaylist(
+      user,
+      festival.name
+    );
+
+    // will save it 100 at a time
+
+    for (let i = 0; i < festivalSetlist.length; i += 10) {
+      const batch = festivalSetlist.slice(i, i + 10);
+      await this.musicApiService.addSongToPlaylist(user, id, batch);
+    }
+
+    return {
+      id,
+    };
   }
 }

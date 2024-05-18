@@ -8,6 +8,7 @@ import { SetlistModule } from '../setlist/setlist.module';
 import { FestivalCalculationProgressModule } from '../services/festival-calculation-progress/festival-calculation-progress.module';
 import { BullModule, BullModuleOptions } from '@nestjs/bull';
 import { FestivalConsumer } from './festival.consumer';
+import { MusicApiModule } from '../../services/music-api/musicapi.module';
 
 const queues = [
   {
@@ -23,6 +24,7 @@ const queues = [
     SetlistFmApiModule,
     SetlistModule,
     FestivalCalculationProgressModule,
+    MusicApiModule,
     BullModule.registerQueue(...queues),
   ],
 })

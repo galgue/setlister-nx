@@ -102,4 +102,40 @@ export class MusicApiService {
 
     return response.data;
   }
+
+  async createPlaylist(user: User, name: string) {
+    const uri = `api/${user.uuid}/playlists`;
+    const data = {
+      name,
+    };
+    const observable = this.musicapiHttpService.post<{
+      id: string;
+      name: string;
+      totalItems: number;
+    }>(uri, data);
+
+    const response = await firstValueFrom(observable);
+
+    if (response.status !== 200) {
+      throw new Error('Error creating playlist');
+    }
+
+    return response.data;
+  }
+
+  async addSongToPlaylist(user: User, playlistId: string, itemIds: string[]) {
+    const uri = `api/${user.uuid}/playlists/${playlistId}/items`;
+    const data = {
+      itemIds,
+    };
+    const observable = this.musicapiHttpService.post(uri, data);
+
+    const response = await firstValueFrom(observable);
+
+    if (response.status !== 200) {
+      throw new Error('Error adding song to playlist');
+    }
+
+    return response.data;
+  }
 }
